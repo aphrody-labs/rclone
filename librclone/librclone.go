@@ -30,6 +30,7 @@ struct RcloneRPCResult {
 import "C"
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/rclone/rclone/librclone/librclone"
@@ -98,6 +99,19 @@ func RcloneRPC(method *C.char, input *C.char) (result C.struct_RcloneRPCResult) 
 //export RcloneFreeString
 func RcloneFreeString(str *C.char) {
 	C.free(unsafe.Pointer(str))
+}
+
+// RcloneRPCJSON does the same call as RcloneRPC but returns one C string, so that callers which cannot read a struct
+// returned by value (bun:ffi) can use it: the string is {"status":200,"output":<the output of the call>}. Free it with
+// RcloneFreeString.
+//
+//export RcloneRPCJSON
+func RcloneRPCJSON(method *C.char, input *C.char) *C.char {
+	output, status := librclone.RPC(C.GoString(method), C.GoString(input))
+	if output == "" {
+		output = "null"
+	}
+	return C.CString(fmt.Sprintf(`{"status":%d,"output":%s}`, int(status), output))
 }
 
 // do nothing here - necessary for building into a C library
